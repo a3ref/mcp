@@ -12,7 +12,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "esbuild src/index.js --bundle --platform=node --format=esm --target=node18 --outfile=dist/a3ref-mcp.mjs --banner:js=\"#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "build": "node build.mjs",
     "test": "node --test \"test/*.test.js\""
   },
   "engines": {
