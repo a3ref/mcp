@@ -1,0 +1,12 @@
+{
+  "name": "a3ref",
+  "version": "0.1.0",
+  "description": "Arma 3 scripting reference for Claude: search and read every SQF command, BIS_fnc function and concept page from the BI Community Wiki (updated daily), and check SQF code for made-up, misused or deprecated commands.",
+  "author": {
+    "name": "a3ref"
+  },
+  "homepage": "https://a3ref.github.io/",
+  "repository": "https://github.com/a3ref/mcp",
+  "license": "MIT",
+  "keywords": ["arma3", "sqf", "bohemia-interactive", "modding", "mission-making", "linter", "reference"]
+}

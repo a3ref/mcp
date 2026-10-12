@@ -1,0 +1,42 @@
+{
+  "name": "a3ref-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the Arma 3 scripting reference: search and read every SQF command, BIS_fnc function and concept page, and check SQF code for unknown, misused or deprecated commands.",
+  "type": "module",
+  "bin": {
+    "a3ref-mcp": "dist/a3ref-mcp.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.js --bundle --platform=node --format=esm --target=node18 --outfile=dist/a3ref-mcp.mjs --banner:js=\"#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "arma3",
+    "arma-3",
+    "sqf",
+    "bohemia-interactive",
+    "ai-agents",
+    "linter"
+  ],
+  "homepage": "https://a3ref.github.io/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/a3ref/mcp.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "esbuild": "^0.25.0",
+    "zod": "^4.0.0"
+  }
+}

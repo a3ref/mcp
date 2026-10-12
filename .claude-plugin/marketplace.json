@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "a3ref",
+  "description": "Arma 3 scripting tools for Claude Code",
+  "owner": {
+    "name": "a3ref"
+  },
+  "plugins": [
+    {
+      "name": "a3ref",
+      "description": "Arma 3 SQF reference and linter: every scripting command, BIS_fnc function and concept page from the BI Community Wiki, plus a static checker for SQF.",
+      "source": "./",
+      "category": "development",
+      "homepage": "https://a3ref.github.io/"
+    }
+  ]
+}
