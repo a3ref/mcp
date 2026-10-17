@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "smoke": "node test/smoke.mjs"
   },
   "engines": {
     "node": ">=18"

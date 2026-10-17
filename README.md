@@ -93,8 +93,10 @@ Markdown and JSON, see https://a3ref.github.io/llms.txt.
 npm install
 npm test          # unit tests, offline
 npm run build     # bundles src/ into dist/a3ref-mcp.mjs (committed, so npx and the plugin need no install)
+npm run smoke     # starts the bundle and calls every tool against the live site
 ```
 
 `dist/` must be rebuilt and committed with every change to `src/`; CI checks that it is up to date.
+AI agents working on the code: see [AGENTS.md](AGENTS.md) (layout, rules, how to verify a change).
 
 Content of the reference belongs to the authors of the BI Community Wiki. The code in this repository is MIT licensed.

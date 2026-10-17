@@ -36993,7 +36993,7 @@ server.registerTool(
     inputSchema: {
       query: external_exports.string().min(1).describe('Name or keywords, e.g. "setPos", "spawnGroup", "attach object to vehicle", ">>"'),
       type: external_exports.enum(["any", "command", "function", "topic"]).default("any").describe("Limit to one kind of page"),
-      limit: external_exports.number().int().min(1).max(50).default(10)
+      limit: external_exports.number().int().min(1).max(50).default(10).describe("Maximum number of results")
     },
     annotations: readOnly
   },
@@ -37053,8 +37053,8 @@ server.registerTool(
     title: "List a command or function group",
     description: 'List every command or function in a group (e.g. "Object Manipulation", "Multiplayer", "GUI Control") with one-line summaries. Without a group, lists all groups with their sizes.',
     inputSchema: {
-      group: external_exports.string().optional(),
-      type: external_exports.enum(["command", "function", "topic"]).default("command")
+      group: external_exports.string().optional().describe('Group name, e.g. "Multiplayer"; a partial name matches. Omit to list every group'),
+      type: external_exports.enum(["command", "function", "topic"]).default("command").describe("Which kind of group")
     },
     annotations: readOnly
   },
@@ -37095,7 +37095,7 @@ server.registerTool(
   {
     title: "Recent wiki edits",
     description: "Commands, functions and topics edited on the BI Community Wiki recently (newest first).",
-    inputSchema: { limit: external_exports.number().int().min(1).max(200).default(30) },
+    inputSchema: { limit: external_exports.number().int().min(1).max(200).default(30).describe("Maximum number of edits to list") },
     annotations: readOnly
   },
   async ({ limit }) => {
