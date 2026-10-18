@@ -45,7 +45,10 @@ test("a stalled site times out with a message that says what to do", async () =>
     timeout: 50,
     fetchImpl: (url, { signal }) => new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason))),
   });
-  await assert.rejects(data.get("index.json"), /Cannot reach .*index\.json \(no answer in 0\.05 s\)/);
+  // AbortSignal.timeout does not keep the event loop alive (the stdio server does); without this timer
+  // Node 22 ends the test before the timeout fires
+  const alive = setInterval(() => {}, 1000);
+  await assert.rejects(data.get("index.json"), /Cannot reach .*index\.json \(no answer in 0\.05 s\)/).finally(() => clearInterval(alive));
   const notFound = new Data({ fetchImpl: async () => ({ ok: false, status: 404 }) });
   await assert.rejects(notFound.get("x.json"), (err) => err.status === 404);
 });
