@@ -9,9 +9,9 @@ plus a static checker that catches the mistakes models make most in SQF.
 | Tool | What it does |
 |---|---|
 | `search` | Find commands, functions and topics by name, partial name, operator symbol (`>>`, `!=`) or by what they do ("delete vehicle") |
-| `get` | Read a page: syntax, typed parameters, return value, locality, examples, community notes. Any spelling works (`SETPOS`, `spawnGroup`, `bis fnc spawngroup`); `section` returns one part of a long topic, e.g. one event handler |
+| `get` | Read a page: syntax, typed parameters, return value, locality, examples, community notes. Any spelling works (`SETPOS`, `spawnGroup`, `bis fnc spawngroup`); `section` returns one part of a long topic, e.g. one event handler; very long topics return their outline |
 | `list_group` | Everything in a command or function group ("Multiplayer", "Object Manipulation", ...) |
-| `lint_sqf` | Check SQF: made-up commands, commands used without their left operand or argument, unknown `BIS_fnc_*` functions, deprecated or broken commands, diagnostic-build-only commands |
+| `lint_sqf` | Check SQF: made-up commands, commands used without their left operand or argument, unknown `BIS_fnc_*` functions, deprecated or broken commands, diagnostic-build-only commands, `format` strings missing values, unknown event handler names |
 | `recent_changes` | What changed on the wiki recently |
 
 Example `lint_sqf` output:
@@ -25,7 +25,8 @@ Checked 3 lines: 2 errors, 1 warnings, 0 notes.
 ```
 
 The linter only reports what cannot be valid SQF, so it stays quiet on correct code: run over the 5,500 SQF
-examples on the wiki it reports errors in 24, nearly all of them config or prose pasted into code blocks.
+examples on the wiki it reports 23 errors, nearly all of them config or prose pasted into code blocks.
+The `format` and event handler checks follow [HEMTT](https://github.com/BrettMayson/HEMTT)'s L-S08 and L-S02.
 
 ## Install
 

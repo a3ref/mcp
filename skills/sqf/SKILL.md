@@ -17,7 +17,8 @@ wrong form, so check instead of recalling.
    locality (whether arguments must be local, whether the effect is global) and the Arma 3 version that added it.
    Pages with `status: deprecated` or `broken` name what to use instead.
 3. Concepts such as data types, `Position` formats, locality, the scheduler and event handlers have topic pages:
-   `get` "Multiplayer Scripting", "Position", "Event Handlers" (use `section` for one handler, e.g. "HandleDamage").
+   `get` "Multiplayer Scripting", "Position" with type "topic" (`position` is also a command), "Event Handlers"
+   (long pages return an outline; use `section` for one handler, e.g. "HandleDamage").
 
 ## Before presenting SQF
 

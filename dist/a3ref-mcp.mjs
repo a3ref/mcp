@@ -36590,22 +36590,48 @@ var StdioServerTransport = class {
 // src/data.js
 var DEFAULT_BASE = "https://a3ref.github.io/";
 var TTL = 60 * 60 * 1e3;
+var RETRY = 5 * 60 * 1e3;
+var TIMEOUT = 30 * 1e3;
 var Data = class {
-  constructor({ base = process.env.A3REF_BASE_URL || DEFAULT_BASE, fetchImpl = globalThis.fetch } = {}) {
+  constructor({ base = process.env.A3REF_BASE_URL || DEFAULT_BASE, fetchImpl = globalThis.fetch, timeout = TIMEOUT } = {}) {
     this.base = base.endsWith("/") ? base : base + "/";
     this.fetch = fetchImpl;
+    this.timeout = timeout;
     this.cache = /* @__PURE__ */ new Map();
+    this.pending = /* @__PURE__ */ new Map();
   }
   async get(path, as = "json") {
     const hit = this.cache.get(path);
     if (hit && Date.now() - hit.at < TTL) return hit.value;
-    const res = await this.fetch(this.base + path);
-    if (!res.ok) {
-      const err = new Error(`${this.base + path}: HTTP ${res.status}`);
-      err.status = res.status;
-      throw err;
+    let pending = this.pending.get(path);
+    if (!pending) {
+      pending = this.download(path, as).finally(() => this.pending.delete(path));
+      this.pending.set(path, pending);
     }
-    const value = as === "json" ? await res.json() : await res.text();
+    try {
+      return await pending;
+    } catch (err) {
+      if (!hit) throw err;
+      hit.at = Date.now() - TTL + RETRY;
+      return hit.value;
+    }
+  }
+  async download(path, as) {
+    const url2 = this.base + path;
+    let value;
+    try {
+      const res = await this.fetch(url2, { signal: AbortSignal.timeout(this.timeout) });
+      if (!res.ok) {
+        const err = new Error(`${url2}: HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      value = as === "json" ? await res.json() : await res.text();
+    } catch (err) {
+      if (err.status) throw err;
+      const why = err.name === "TimeoutError" ? `no answer in ${this.timeout / 1e3} s` : err.cause?.code || err.cause?.message || err.message;
+      throw new Error(`Cannot reach ${url2} (${why}). Check the network connection and try again; A3REF_BASE_URL overrides the site.`);
+    }
     this.cache.set(path, { value, at: Date.now() });
     return value;
   }
@@ -36616,26 +36642,29 @@ var Data = class {
     const byKey = /* @__PURE__ */ new Map();
     const add = (key, entry) => {
       const k = normalise(key);
-      if (k && !byKey.has(k)) byKey.set(k, entry);
+      if (!k) return;
+      const list = byKey.get(k) || byKey.set(k, []).get(k);
+      if (!list.includes(entry)) list.push(entry);
     };
-    for (const e of raw.items) {
-      add(e.name, e);
-      if (e.operator) add(e.operator, e);
-      add(e.md.replace(/^.*\//, "").replace(/\.md$/, ""), e);
-      for (const a of e.aliases || []) add(a, e);
-    }
-    for (const e of raw.items) {
-      if (e.type === "topic") add(e.name.replace(/^Arma 3: /, ""), e);
-    }
+    for (const e of raw.items) add(e.name, e);
+    for (const e of raw.items) if (e.operator) add(e.operator, e);
+    for (const e of raw.items) add(e.md.replace(/^.*\//, "").replace(/\.md$/, ""), e);
+    for (const e of raw.items) for (const a of e.aliases || []) add(a, e);
+    for (const e of raw.items) if (e.type === "topic") add(e.name.replace(/^Arma 3: /, ""), e);
     this._indexFor = raw;
     this._index = { items: raw.items, updated: raw.updated, byKey };
     return this._index;
   }
-  /** Find an entry by any spelling: case, spaces/underscores, operator symbol, wiki alias. */
-  async find(name) {
+  /** Every entry a name can mean, best match first: "Position" is both a command and a topic. */
+  async lookup(name, type) {
     const { byKey } = await this.index();
     const k = normalise(name);
-    return byKey.get(k) || byKey.get("bis_fnc_" + k) || null;
+    const all = byKey.get(k) || byKey.get("bis_fnc_" + k) || [];
+    return type ? all.filter((e) => e.type === type) : all;
+  }
+  /** Find an entry by any spelling: case, spaces/underscores, operator symbol, wiki alias. */
+  async find(name, type) {
+    return (await this.lookup(name, type))[0] || null;
   }
   syntax() {
     return this.get("syntax.json");
@@ -36646,7 +36675,35 @@ var Data = class {
   changes() {
     return this.get("changes.json");
   }
+  /** Event handler names by kind (object, mp, mission, music, ui), read from the headings of the event handler pages. */
+  async events() {
+    const page = async (name) => {
+      const e = await this.find(name, "topic");
+      return e ? this.get(e.json) : { sections: [] };
+    };
+    const [object3, mission, ui] = await Promise.all([
+      page("Arma 3: Event Handlers"),
+      page("Arma 3: Mission Event Handlers"),
+      page("User Interface Event Handlers")
+    ]);
+    return eventNames(object3, mission, ui);
+  }
 };
+var headingName = (s) => (s.heading || "").match(/^[A-Za-z_][A-Za-z0-9_]*/)?.[0];
+function eventNames(object3, mission, ui) {
+  const kinds = { object: /* @__PURE__ */ new Map(), mp: /* @__PURE__ */ new Map(), mission: /* @__PURE__ */ new Map(), music: /* @__PURE__ */ new Map(), ui: /* @__PURE__ */ new Map() };
+  const add = (kind2, name) => name && kinds[kind2].set(name.toLowerCase(), name);
+  let kind = null;
+  for (const s of object3.sections || []) {
+    if (s.level <= 3) {
+      const h = (s.heading || "").toLowerCase();
+      kind = h.startsWith("multiplayer") ? "mp" : h.startsWith("music") ? "music" : h.startsWith("useraction") ? null : "object";
+    } else if (kind) add(kind, headingName(s));
+  }
+  for (const s of mission.sections || []) if (s.level >= 4) add("mission", headingName(s));
+  for (const s of ui.sections || []) if (s.level >= 5) add("ui", headingName(s)?.replace(/^on(?=[A-Z])/, ""));
+  return kinds;
+}
 function normalise(name) {
   return String(name || "").trim().replace(/\(\s*\)$/, "").replace(/\s+/g, " ").toLowerCase().replace(/ /g, "_");
 }
@@ -36769,6 +36826,10 @@ function tokenize(code) {
       advance(m[0].length);
       continue;
     }
+    if (rest.startsWith("#{")) {
+      advance(1);
+      continue;
+    }
     const two = TWO_CHAR_OPS.find((op) => rest.startsWith(op));
     if (two) {
       tokens.push({ type: "op", value: two, ...start });
@@ -36784,7 +36845,7 @@ function tokenize(code) {
   }
   return tokens;
 }
-function lint(code, syntax) {
+function lint(code, syntax, { events } = {}) {
   const diagnostics = [];
   if (/^\s*class\s+\w+[\s:{]/m.test(code) && !/^\s*private\b|\bcall\b|\bspawn\b/m.test(code)) {
     return [{ line: 1, col: 1, severity: "info", message: "This looks like a config (class ...), not SQF; only SQF is checked." }];
@@ -36795,6 +36856,7 @@ function lint(code, syntax) {
   const assigned = /* @__PURE__ */ new Set();
   tokens.forEach((t, i) => {
     if (t.type === "ident" && tokens[i + 1]?.value === "=") assigned.add(t.value.toLowerCase());
+    if (t.type === "string" && /^.[A-Za-z_]\w*.$/.test(t.value)) assigned.add(t.value.slice(1, -1).toLowerCase());
   });
   const defined = new Set([...code.matchAll(/^\s*#define\s+(\w+)/gm)].map((m) => m[1].toLowerCase()));
   const hinted = /* @__PURE__ */ new Set();
@@ -36840,6 +36902,8 @@ function lint(code, syntax) {
     if (k === "command") {
       const c = commands[low];
       notice(diagnostics, at, c);
+      if (low === "format" || low === "formattext") formatArgs(diagnostics, tokens, i, c, defined);
+      if (events && EVENT_COMMANDS[low]) eventName(diagnostics, tokens, i, c, EVENT_COMMANDS[low], events);
       const f = c.forms || [];
       if (!f.length) continue;
       const left = valueEnd(prev, t);
@@ -36911,6 +36975,80 @@ function skipConfigClasses(tokens) {
   }
   return out;
 }
+function arrayElements(tokens, i) {
+  const elements = [[]];
+  let depth = 0;
+  for (let j = i; j < tokens.length; j++) {
+    const v = tokens[j].type === "punct" ? tokens[j].value : null;
+    if (v === "[" || v === "(" || v === "{") {
+      if (depth++ === 0) continue;
+    } else if (v === "]" || v === ")" || v === "}") {
+      if (--depth === 0) return elements;
+    } else if (v === "," && depth === 1) {
+      elements.push([]);
+      continue;
+    }
+    elements.at(-1).push(tokens[j]);
+  }
+  return null;
+}
+var unquote = (t) => t.value.slice(1, -1).replaceAll(t.value[0] + t.value[0], t.value[0]);
+function formatArgs(diagnostics, tokens, i, c, defined) {
+  if (tokens[i + 1]?.value !== "[") return;
+  const elements = arrayElements(tokens, i + 1);
+  if (!elements || elements[0].length !== 1 || elements[0][0].type !== "string") return;
+  if (elements.flat().some((t) => t.type === "ident" && (defined.has(t.value.toLowerCase()) || /^[A-Z][A-Z0-9_]*$/.test(t.value)))) return;
+  const used = [...unquote(elements[0][0]).matchAll(/%(\d+)/g)].map((m) => Number(m[1]));
+  const max = Math.max(0, ...used);
+  const passed = elements.length - 1;
+  if (max > passed) {
+    const t = tokens[i];
+    diagnostics.push({
+      line: t.line,
+      col: t.col,
+      severity: "error",
+      message: `${c.name} uses %${max} but passes ${passed} value${passed === 1 ? "" : "s"} after the format string.`
+    });
+  }
+}
+var EVENT_KINDS = {
+  object: ["addEventHandler", "removeEventHandler", "removeAllEventHandlers"],
+  mp: ["addMPEventHandler", "removeMPEventHandler", "removeAllMPEventHandlers"],
+  mission: ["addMissionEventHandler", "removeMissionEventHandler", "removeAllMissionEventHandlers"],
+  music: ["addMusicEventHandler", "removeMusicEventHandler", "removeAllMusicEventHandlers"],
+  ui: [
+    "ctrlAddEventHandler",
+    "ctrlRemoveEventHandler",
+    "ctrlRemoveAllEventHandlers",
+    "ctrlSetEventHandler",
+    "displayAddEventHandler",
+    "displayRemoveEventHandler",
+    "displayRemoveAllEventHandlers",
+    "displaySetEventHandler"
+  ]
+};
+var EVENT_COMMANDS = Object.fromEntries(
+  Object.entries(EVENT_KINDS).flatMap(([kind, names]) => names.map((n) => [n.toLowerCase(), kind]))
+);
+function eventName(diagnostics, tokens, i, c, kind, events) {
+  const known = events[kind];
+  if (!known?.size) return;
+  let t = tokens[i + 1];
+  if (t?.value === "[") t = tokens[i + 2];
+  if (t?.type !== "string") return;
+  const name = unquote(t);
+  const low = name.toLowerCase();
+  if (known.has(low) || kind === "ui" && known.has(low.replace(/^on/, ""))) return;
+  const at = { line: t.line, col: t.col };
+  const other = Object.keys(EVENT_KINDS).find((k) => k !== kind && events[k]?.has(low));
+  if (other) {
+    diagnostics.push({ ...at, severity: "warning", message: `"${name}" is not an event of ${c.name}; add it with ${EVENT_KINDS[other][0]}.` });
+    return;
+  }
+  const near = closest(low, [...known.keys()], Math.max(2, Math.floor(low.length / 4)));
+  const hint = near.length ? ` Did you mean ${near.map((n) => known.get(n)).join(", ")}?` : "";
+  diagnostics.push({ ...at, severity: "warning", message: `Unknown event "${name}" for ${c.name}.${hint}` });
+}
 function notice(diagnostics, at, entry) {
   if (!entry) return;
   const instead = entry.replaced_by?.length ? ` Use ${entry.replaced_by.join(" or ")} instead.` : "";
@@ -36956,16 +37094,59 @@ function distance(a, b, max) {
   }
   return prev[b.length];
 }
+var MAX_SHOWN = 100;
 function format(diagnostics, code) {
   const lines = code.split("\n").length;
   const count = (s) => diagnostics.filter((d) => d.severity === s).length;
   const head = `Checked ${lines} line${lines === 1 ? "" : "s"}: ${count("error")} errors, ${count("warning")} warnings, ${count("info")} notes.`;
   if (!diagnostics.length) return head + " No problems found.";
-  return [head, "", ...diagnostics.map((d) => `${d.line}:${d.col} ${d.severity}: ${d.message}`)].join("\n");
+  const order = { error: 0, warning: 1, info: 2 };
+  const shown = diagnostics.length > MAX_SHOWN ? [...diagnostics].sort((a, b) => order[a.severity] - order[b.severity]).slice(0, MAX_SHOWN) : diagnostics;
+  const rest = diagnostics.length - shown.length;
+  const more = rest ? ["", `... ${rest} more not shown; fix these and check again, or check the code in parts.`] : [];
+  return [head, "", ...shown.map((d) => `${d.line}:${d.col} ${d.severity}: ${d.message}`), ...more].join("\n");
+}
+
+// src/pages.js
+var OUTLINE_OVER = 4e4;
+var nameOf = (heading) => (heading || "").replace(/\s*\(.*$/, "").toLowerCase();
+function pickSections(sections, want) {
+  const w = want.trim().toLowerCase();
+  const exact = sections.filter((s) => s.heading && (s.heading.toLowerCase() === w || nameOf(s.heading) === w));
+  const chosen = new Set(exact.length ? exact : sections.filter((s) => (s.heading || "").toLowerCase().includes(w)));
+  const out = [];
+  let under = null;
+  for (const s of sections) {
+    if (under !== null && s.level > under) out.push(s);
+    else if (chosen.has(s)) {
+      out.push(s);
+      under = s.level;
+    } else under = null;
+  }
+  return out;
+}
+function renderSections(sections) {
+  return sections.map((s) => `${"#".repeat(s.level)} ${s.heading}
+
+${s.markdown}`.trim()).join("\n\n");
+}
+function outline(entry, page, url2) {
+  const titled = page.sections.filter((s) => s.heading);
+  const top = Math.min(...titled.map((s) => s.level));
+  const list = titled.map((s) => `${"  ".repeat(s.level - top)}- ${s.heading}`).join("\n");
+  const intro = page.sections[0] && !page.sections[0].heading ? page.sections[0].markdown.trim() : "";
+  const example = titled.find((s) => s.level === Math.max(...titled.map((t) => t.level)))?.heading.replace(/\s*\(.*$/, "");
+  return [
+    `# ${entry.name}`,
+    intro,
+    `This page is long, so only its outline is shown. Call get again with \`section\` set to a heading` + (example ? ` (e.g. "${example}")` : "") + ` to read that part with its subsections.`,
+    list,
+    `Whole page: ${url2}`
+  ].filter(Boolean).join("\n\n");
 }
 
 // src/index.js
-var VERSION = "0.1.0";
+var VERSION = "0.2.0";
 var data = new Data();
 var INSTRUCTIONS = `Arma 3 scripting reference (SQF), mirrored daily from the Bohemia Interactive Community Wiki.
 Use it whenever you write, review or debug Arma 3 scripts, missions or mods:
@@ -36974,7 +37155,7 @@ Use it whenever you write, review or debug Arma 3 scripts, missions or mods:
 - lint_sqf: check SQF before presenting it: catches made-up commands, wrong operand forms, unknown BIS_fnc_* functions and deprecated commands.
 Do not rely on memory for SQF syntax; names are often similar and many commands are binary (left operand required).`;
 var server = new McpServer({ name: "a3ref", version: VERSION }, { instructions: INSTRUCTIONS });
-var readOnly = { readOnlyHint: true, openWorldHint: true };
+var readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
 var text = (t) => ({ content: [{ type: "text", text: t }] });
 var fail = (t) => ({ content: [{ type: "text", text: t }], isError: true });
 function line(e) {
@@ -37010,43 +37191,59 @@ server.registerTool(
   "get",
   {
     title: "Read a reference page",
-    description: "Read the full page of an Arma 3 command, function or concept: description, every syntax with typed parameters and return value, locality, examples and community notes. Names are matched case-insensitively; operators by symbol; BIS_fnc_ may be omitted. For long concept pages (e.g. Event Handlers) pass `section` to get only matching sections.",
+    description: "Read the full page of an Arma 3 command, function or concept: description, every syntax with typed parameters and return value, locality, examples and community notes. Names are matched case-insensitively; operators by symbol; BIS_fnc_ may be omitted. Long concept pages (e.g. Event Handlers) return an outline: pass `section` to read a part.",
     inputSchema: {
       name: external_exports.string().min(1).describe('e.g. "createVehicle", "BIS_fnc_spawnGroup", "!=", "Event Handlers", "Position"'),
+      type: external_exports.enum(["command", "function", "topic"]).optional().describe('Only when a command and a concept page share a name: "Position", "Group", "Side"'),
       format: external_exports.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields"),
-      section: external_exports.string().optional().describe('Topic pages only: heading text to match, e.g. "HandleDamage"')
+      section: external_exports.string().optional().describe('Topic pages only: heading to read, with its subsections, e.g. "HandleDamage"')
     },
     annotations: readOnly
   },
-  async ({ name, format: format2, section }) => {
-    const entry = await data.find(name);
-    if (!entry) {
-      const { items } = await data.index();
-      const near = search(items, name, { limit: 5 });
-      return fail(`No page named "${name}".` + (near.length ? ` Closest matches:
-${near.map(line).join("\n")}` : ""));
-    }
+  async ({ name, type, format: format2, section }) => {
+    const all = await data.lookup(name, type);
+    const entry = section && all.find((e) => e.type === "topic") || all[0];
+    if (!entry) return fail(await notFound(name, type));
+    const url2 = data.base + entry.md;
+    const others = all.filter((e) => e.type !== entry.type);
+    const also = others.map((e) => `
+
+Also a ${e.type} page named "${e.name}": call get with type "${e.type}".`).join("");
     if (section && entry.type === "topic") {
       const page2 = await data.page(entry, "json");
-      const want = section.toLowerCase();
-      const parts = page2.sections.filter((s) => (s.heading || "").toLowerCase().includes(want));
+      const parts = pickSections(page2.sections, section);
       if (!parts.length) {
         const headings = page2.sections.map((s) => s.heading).filter(Boolean);
         return fail(`No section matching "${section}" in ${entry.name}. Sections: ${headings.join(", ")}`);
       }
-      const body = parts.map((s) => `${"#".repeat(s.level)} ${s.heading}
-
-${s.markdown}`).join("\n\n");
       return text(`# ${entry.name}
 
-${body}
+${renderSections(parts)}
 
-Source: ${data.base}${entry.md}`);
+Source: ${url2}`);
     }
     const page = await data.page(entry, format2);
-    return text(format2 === "json" ? JSON.stringify(page, null, 1) : page);
+    if (format2 === "json") return text(JSON.stringify(page));
+    if (entry.type === "topic" && page.length > OUTLINE_OVER) return text(outline(entry, await data.page(entry, "json"), url2) + also);
+    const note = section ? `
+
+(\`section\` applies to concept pages; this is the whole ${entry.type} page.)` : "";
+    return text(page + note + also);
   }
 );
+async function notFound(name, type) {
+  const { items, byKey } = await data.index();
+  const ofType = type ? items.filter((e) => e.type === type) : items;
+  let near = search(ofType, name, { limit: 5 });
+  if (!near.length) {
+    const keys = closest(name.toLowerCase().replace(/\s+/g, "_"), [...byKey.keys()], 2, 5);
+    near = [...new Set(keys.flatMap((k) => byKey.get(k)))].filter((e) => !type || e.type === type).slice(0, 5);
+  }
+  const what = type ? `${type} page` : "page";
+  return `No ${what} named "${name}".` + (near.length ? ` Closest matches:
+${near.map(line).join("\n")}` : " Try search with keywords.") + `
+Event handlers and other parts of concept pages are sections: get "Event Handlers" with section "HandleDamage".`;
+}
 server.registerTool(
   "list_group",
   {
@@ -37062,7 +37259,7 @@ server.registerTool(
     const { items } = await data.index();
     const ofType = items.filter((e) => e.type === type);
     const counts = /* @__PURE__ */ new Map();
-    for (const e of ofType) for (const g of e.groups) counts.set(g, (counts.get(g) || 0) + 1);
+    for (const e of ofType) for (const g of e.groups || []) counts.set(g, (counts.get(g) || 0) + 1);
     if (!group) {
       const groups = [...counts].sort((a, b) => a[0].localeCompare(b[0]));
       return text(`${type} groups:
@@ -37071,7 +37268,7 @@ ${groups.map(([g, n]) => `- ${g} (${n})`).join("\n")}`);
     const want = group.toLowerCase();
     const match = [...counts.keys()].find((g) => g.toLowerCase() === want) || [...counts.keys()].find((g) => g.toLowerCase().includes(want));
     if (!match) return fail(`No ${type} group "${group}". Call list_group without a group to see them all.`);
-    const members2 = ofType.filter((e) => e.groups.includes(match)).sort((a, b) => a.name.localeCompare(b.name));
+    const members2 = ofType.filter((e) => e.groups?.includes(match)).sort((a, b) => a.name.localeCompare(b.name));
     return text(`${match} (${members2.length} ${type}s):
 
 ${members2.map(line).join("\n")}`);
@@ -37081,13 +37278,14 @@ server.registerTool(
   "lint_sqf",
   {
     title: "Check SQF code",
-    description: "Statically check Arma 3 SQF code against the reference: unknown (made-up) commands, commands used in a form they do not have (e.g. a binary command without its left operand, a command without its argument), unknown BIS_fnc_* functions, deprecated or broken commands, and diagnostic-build-only commands. Run it on SQF you wrote before presenting it. Unknown words in variable positions are treated as global variables and are not reported.",
+    description: "Statically check Arma 3 SQF code against the reference: unknown (made-up) commands, commands used in a form they do not have (e.g. a binary command without its left operand, a command without its argument), unknown BIS_fnc_* functions, deprecated or broken commands, diagnostic-build-only commands, format strings missing values and unknown event handler names. Run it on SQF you wrote before presenting it. Unknown words in variable positions are treated as global variables and are not reported.",
     inputSchema: { code: external_exports.string().min(1).describe("SQF source code") },
     annotations: readOnly
   },
   async ({ code }) => {
     const syntax = await data.syntax();
-    return text(format(lint(code, syntax), code));
+    const events = /eventhandler/i.test(code) ? await data.events().catch(() => null) : null;
+    return text(format(lint(code, syntax, { events }), code));
   }
 );
 server.registerTool(
@@ -37103,7 +37301,7 @@ server.registerTool(
     const rows = [];
     for (const c of changes) {
       for (const [label, list] of [["added", c.added], ["changed", c.changed], ["removed", c.removed]]) {
-        for (const i of list) rows.push(`- ${c.date.slice(0, 10)} ${label}: ${i.name} (${i.type})`);
+        for (const i of list || []) rows.push(`- ${c.date.slice(0, 10)} ${label}: ${i.name} (${i.type})`);
       }
     }
     return text(rows.length ? rows.slice(0, limit).join("\n") : "No wiki edits recorded yet.");

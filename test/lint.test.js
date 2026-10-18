@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lint, tokenize, closest } from "../src/lint.js";
+import { lint, tokenize, closest, format } from "../src/lint.js";
 
 const syntax = {
   commands: {
@@ -27,6 +27,15 @@ const syntax = {
     },
     diag_fps: { name: "diag_fps", forms: ["nullary"], status: "ok", branch: "diag", syntax: ["diag_fps"] },
     objnull: { name: "objNull", forms: ["nullary"], status: "ok", syntax: ["objNull"] },
+    isnil: { name: "isNil", forms: ["unary"], status: "ok", syntax: ["isNil variable"] },
+    select: { name: "select", forms: ["binary"], status: "ok", syntax: ["array select index"] },
+    localize: { name: "localize", forms: ["unary"], status: "ok", syntax: ["localize stringName"] },
+    format: { name: "format", forms: ["unary"], status: "ok", syntax: ["format [formatString, var1, ...]"] },
+    ctrlsetproperty: { name: "ctrlSetProperty", forms: ["binary"], status: "ok", syntax: ["control ctrlSetProperty properties"] },
+    addeventhandler: { name: "addEventHandler", forms: ["binary"], status: "ok", syntax: ["object addEventHandler [type, function]"] },
+    addmissioneventhandler: { name: "addMissionEventHandler", forms: ["unary"], status: "ok", syntax: ["addMissionEventHandler [type, function]"] },
+    ctrladdeventhandler: { name: "ctrlAddEventHandler", forms: ["binary"], status: "ok", syntax: ["control ctrlAddEventHandler [type, function]"] },
+    removealleventhandlers: { name: "removeAllEventHandlers", forms: ["binary"], status: "ok", syntax: ["object removeAllEventHandlers type"] },
   },
   functions: { bis_fnc_spawngroup: { name: "BIS_fnc_spawnGroup", status: "ok" } },
 };
@@ -86,4 +95,42 @@ test("tokenizer handles strings with doubled quotes and numbers", () => {
 
 test("closest treats a swap of neighbouring letters as one edit", () => {
   assert.deepEqual(closest("palyer", ["player", "layer"], 1), ["player"]);
+});
+
+test("HashMap literals and BIS_fnc_ names held in variables are not errors", () => {
+  assert.deepEqual(lint('_ctrl ctrlSetProperty #{"x": 0.015, "y": [1, 2]};', syntax), []);
+  assert.deepEqual(errors('if (!isNil "BIS_fnc_music_spawn") then { hint str BIS_fnc_music_spawn };'), []);
+});
+
+test("format strings that use more placeholders than values", () => {
+  assert.match(errors('hint format ["%1 of %2", _a];')[0].message, /format uses %2 but passes 1 value after the format string/);
+  assert.doesNotThrow(() => lint('hint format ["%1 %2", _a', syntax)); // unclosed array
+  assert.deepEqual(errors('hint format ["%1 of %2 (%1)", _a, [_b, _c] select 0];'), []);
+  assert.deepEqual(errors('hint format ["%1 %%", _a, _b]; hint format [localize "STR_x", _a]; hint format ["%1 %2", ARGS(1)];'), []);
+});
+
+test("event handler names are checked against the command that adds them", () => {
+  const events = {
+    object: new Map([["killed", "Killed"], ["handledamage", "HandleDamage"]]),
+    mp: new Map([["mphit", "MPHit"]]),
+    mission: new Map([["draw3d", "Draw3D"]]),
+    music: new Map(),
+    ui: new Map([["buttonclick", "ButtonClick"]]),
+  };
+  const warn = (code) => lint(code, syntax, { events }).filter((d) => d.severity === "warning").map((d) => d.message);
+  assert.deepEqual(warn(`
+    player addEventHandler ["Killed", {}]; player addEventHandler ["handleDamage", {}];
+    addMissionEventHandler ["Draw3D", {}]; _c ctrlAddEventHandler ["ButtonClick", {}]; _c ctrlAddEventHandler ["onButtonClick", {}];
+    player addEventHandler [_name, {}]; player removeAllEventHandlers "Killed";
+  `), []);
+  assert.deepEqual(warn('player addEventHandler ["Kiled", {}];'), ['Unknown event "Kiled" for addEventHandler. Did you mean Killed?']);
+  assert.deepEqual(warn('player addEventHandler ["Draw3D", {}];'), ['"Draw3D" is not an event of addEventHandler; add it with addMissionEventHandler.']);
+  assert.deepEqual(lint('player addEventHandler ["Kiled", {}];', syntax), []); // event pages unavailable: no check
+});
+
+test("long reports are cut, errors first", () => {
+  const report = format(lint("hint; ".repeat(150), syntax), "hint; ".repeat(150));
+  assert.match(report, /^Checked 1 line: 150 errors/);
+  assert.equal(report.split("\n").filter((l) => / error: /.test(l)).length, 100);
+  assert.match(report, /50 more not shown/);
 });

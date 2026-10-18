@@ -1,6 +1,6 @@
 {
   "name": "a3ref-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for the Arma 3 scripting reference: search and read every SQF command, BIS_fnc function and concept page, and check SQF code for unknown, misused or deprecated commands.",
   "type": "module",
   "bin": {

@@ -4,9 +4,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { Data } from "./data.js";
 import { search } from "./search.js";
-import { lint, format } from "./lint.js";
+import { lint, format, closest } from "./lint.js";
+import { OUTLINE_OVER, pickSections, renderSections, outline } from "./pages.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const data = new Data();
 
 const INSTRUCTIONS = `Arma 3 scripting reference (SQF), mirrored daily from the Bohemia Interactive Community Wiki.
@@ -17,7 +18,8 @@ Use it whenever you write, review or debug Arma 3 scripts, missions or mods:
 Do not rely on memory for SQF syntax; names are often similar and many commands are binary (left operand required).`;
 
 const server = new McpServer({ name: "a3ref", version: VERSION }, { instructions: INSTRUCTIONS });
-const readOnly = { readOnlyHint: true, openWorldHint: true };
+// All four hints are explicit: some directories (OpenAI's) reject tools that omit any of them.
+const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
 const text = (t) => ({ content: [{ type: "text", text: t }] });
 const fail = (t) => ({ content: [{ type: "text", text: t }], isError: true });
 
@@ -57,36 +59,54 @@ server.registerTool(
     description:
       "Read the full page of an Arma 3 command, function or concept: description, every syntax with typed parameters " +
       "and return value, locality, examples and community notes. Names are matched case-insensitively; operators by symbol; " +
-      "BIS_fnc_ may be omitted. For long concept pages (e.g. Event Handlers) pass `section` to get only matching sections.",
+      "BIS_fnc_ may be omitted. Long concept pages (e.g. Event Handlers) return an outline: pass `section` to read a part.",
     inputSchema: {
       name: z.string().min(1).describe('e.g. "createVehicle", "BIS_fnc_spawnGroup", "!=", "Event Handlers", "Position"'),
+      type: z.enum(["command", "function", "topic"]).optional()
+        .describe('Only when a command and a concept page share a name: "Position", "Group", "Side"'),
       format: z.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields"),
-      section: z.string().optional().describe('Topic pages only: heading text to match, e.g. "HandleDamage"'),
+      section: z.string().optional().describe('Topic pages only: heading to read, with its subsections, e.g. "HandleDamage"'),
     },
     annotations: readOnly,
   },
-  async ({ name, format, section }) => {
-    const entry = await data.find(name);
-    if (!entry) {
-      const { items } = await data.index();
-      const near = search(items, name, { limit: 5 });
-      return fail(`No page named "${name}".` + (near.length ? ` Closest matches:\n${near.map(line).join("\n")}` : ""));
-    }
+  async ({ name, type, format, section }) => {
+    const all = await data.lookup(name, type);
+    // a section is asked of a concept page: "Position" with a section means the topic, not the position command
+    const entry = (section && all.find((e) => e.type === "topic")) || all[0];
+    if (!entry) return fail(await notFound(name, type));
+    const url = data.base + entry.md;
+    const others = all.filter((e) => e.type !== entry.type);
+    const also = others.map((e) => `\n\nAlso a ${e.type} page named "${e.name}": call get with type "${e.type}".`).join("");
     if (section && entry.type === "topic") {
       const page = await data.page(entry, "json");
-      const want = section.toLowerCase();
-      const parts = page.sections.filter((s) => (s.heading || "").toLowerCase().includes(want));
+      const parts = pickSections(page.sections, section);
       if (!parts.length) {
         const headings = page.sections.map((s) => s.heading).filter(Boolean);
         return fail(`No section matching "${section}" in ${entry.name}. Sections: ${headings.join(", ")}`);
       }
-      const body = parts.map((s) => `${"#".repeat(s.level)} ${s.heading}\n\n${s.markdown}`).join("\n\n");
-      return text(`# ${entry.name}\n\n${body}\n\nSource: ${data.base}${entry.md}`);
+      return text(`# ${entry.name}\n\n${renderSections(parts)}\n\nSource: ${url}`);
     }
     const page = await data.page(entry, format);
-    return text(format === "json" ? JSON.stringify(page, null, 1) : page);
+    if (format === "json") return text(JSON.stringify(page)); // stays parseable: no note appended
+    if (entry.type === "topic" && page.length > OUTLINE_OVER) return text(outline(entry, await data.page(entry, "json"), url) + also);
+    const note = section ? `\n\n(\`section\` applies to concept pages; this is the whole ${entry.type} page.)` : "";
+    return text(page + note + also);
   },
 );
+
+async function notFound(name, type) {
+  const { items, byKey } = await data.index();
+  const ofType = type ? items.filter((e) => e.type === type) : items;
+  let near = search(ofType, name, { limit: 5 });
+  if (!near.length) {
+    // a misspelt name ("setPoss") is no substring of anything; edit distance still finds it
+    const keys = closest(name.toLowerCase().replace(/\s+/g, "_"), [...byKey.keys()], 2, 5);
+    near = [...new Set(keys.flatMap((k) => byKey.get(k)))].filter((e) => !type || e.type === type).slice(0, 5);
+  }
+  const what = type ? `${type} page` : "page";
+  return `No ${what} named "${name}".` + (near.length ? ` Closest matches:\n${near.map(line).join("\n")}` : " Try search with keywords.") +
+    `\nEvent handlers and other parts of concept pages are sections: get "Event Handlers" with section "HandleDamage".`;
+}
 
 server.registerTool(
   "list_group",
@@ -105,7 +125,7 @@ server.registerTool(
     const { items } = await data.index();
     const ofType = items.filter((e) => e.type === type);
     const counts = new Map();
-    for (const e of ofType) for (const g of e.groups) counts.set(g, (counts.get(g) || 0) + 1);
+    for (const e of ofType) for (const g of e.groups || []) counts.set(g, (counts.get(g) || 0) + 1);
     if (!group) {
       const groups = [...counts].sort((a, b) => a[0].localeCompare(b[0]));
       return text(`${type} groups:\n${groups.map(([g, n]) => `- ${g} (${n})`).join("\n")}`);
@@ -113,7 +133,7 @@ server.registerTool(
     const want = group.toLowerCase();
     const match = [...counts.keys()].find((g) => g.toLowerCase() === want) || [...counts.keys()].find((g) => g.toLowerCase().includes(want));
     if (!match) return fail(`No ${type} group "${group}". Call list_group without a group to see them all.`);
-    const members = ofType.filter((e) => e.groups.includes(match)).sort((a, b) => a.name.localeCompare(b.name));
+    const members = ofType.filter((e) => e.groups?.includes(match)).sort((a, b) => a.name.localeCompare(b.name));
     return text(`${match} (${members.length} ${type}s):\n\n${members.map(line).join("\n")}`);
   },
 );
@@ -125,14 +145,18 @@ server.registerTool(
     description:
       "Statically check Arma 3 SQF code against the reference: unknown (made-up) commands, commands used in a form they do not " +
       "have (e.g. a binary command without its left operand, a command without its argument), unknown BIS_fnc_* functions, " +
-      "deprecated or broken commands, and diagnostic-build-only commands. Run it on SQF you wrote before presenting it. " +
+      "deprecated or broken commands, diagnostic-build-only commands, format strings missing values and unknown event " +
+      "handler names. Run it on SQF you wrote before presenting it. " +
       "Unknown words in variable positions are treated as global variables and are not reported.",
     inputSchema: { code: z.string().min(1).describe("SQF source code") },
     annotations: readOnly,
   },
   async ({ code }) => {
     const syntax = await data.syntax();
-    return text(format(lint(code, syntax), code));
+    // event names come from three topic pages: fetch them only for code that adds or removes handlers,
+    // and lint without them if they cannot be read
+    const events = /eventhandler/i.test(code) ? await data.events().catch(() => null) : null;
+    return text(format(lint(code, syntax, { events }), code));
   },
 );
 
@@ -149,7 +173,7 @@ server.registerTool(
     const rows = [];
     for (const c of changes) {
       for (const [label, list] of [["added", c.added], ["changed", c.changed], ["removed", c.removed]]) {
-        for (const i of list) rows.push(`- ${c.date.slice(0, 10)} ${label}: ${i.name} (${i.type})`);
+        for (const i of list || []) rows.push(`- ${c.date.slice(0, 10)} ${label}: ${i.name} (${i.type})`);
       }
     }
     return text(rows.length ? rows.slice(0, limit).join("\n") : "No wiki edits recorded yet.");

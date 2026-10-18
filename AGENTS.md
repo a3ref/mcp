@@ -14,6 +14,7 @@ from [a3ref/data](https://github.com/a3ref/data)) and bundles no data.
 | `src/index.js` | server: instructions and the five tools (`search`, `get`, `list_group`, `lint_sqf`, `recent_changes`) |
 | `src/data.js` | fetches `index.json`, `syntax.json`, `changes.json` and pages from the site; 1 h in-memory cache; `A3REF_BASE_URL` overrides the site |
 | `src/search.js` | ranking for `search` |
+| `src/pages.js` | sections and outlines of topic pages for `get` |
 | `src/lint.js` | SQF tokenizer and static checks for `lint_sqf` |
 | `test/*.test.js` | offline unit tests (`node --test`) |
 | `test/smoke.mjs` | starts `dist/` and calls every tool against the live site |

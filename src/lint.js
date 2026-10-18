@@ -7,8 +7,11 @@
 //   - a known command used in a form it does not have (setPos without a left operand, hint without an
 //     argument);
 //   - BIS_fnc_* names that do not exist;
-//   - deprecated, broken and diagnostic-build-only commands and functions.
+//   - deprecated, broken and diagnostic-build-only commands and functions;
+//   - format strings that use more %N than values are passed;
+//   - event handler names that do not exist, or belong to another command (addEventHandler "Draw3D").
 // Unknown words in variable positions are global variables and are left alone.
+// The last two checks follow HEMTT's L-S08 and L-S02 (https://github.com/BrettMayson/HEMTT).
 
 const TWO_CHAR_OPS = [">>", "==", "!=", ">=", "<=", "&&", "||"];
 const ONE_CHAR = "+-*/%^!=<>:#;,()[]{}";
@@ -69,6 +72,11 @@ export function tokenize(code) {
       advance(m[0].length);
       continue;
     }
+    if (rest.startsWith("#{")) {
+      // HashMap literal `#{"key": value}` (Arma 3 2.24, see ctrlSetProperty): read it as the block that follows
+      advance(1);
+      continue;
+    }
     const two = TWO_CHAR_OPS.find((op) => rest.startsWith(op));
     if (two) {
       tokens.push({ type: "op", value: two, ...start });
@@ -85,7 +93,8 @@ export function tokenize(code) {
   return tokens;
 }
 
-export function lint(code, syntax) {
+/** `events` (optional) is Data#events(): without it event handler names are not checked. */
+export function lint(code, syntax, { events } = {}) {
   const diagnostics = [];
   if (/^\s*class\s+\w+[\s:{]/m.test(code) && !/^\s*private\b|\bcall\b|\bspawn\b/m.test(code)) {
     return [{ line: 1, col: 1, severity: "info", message: "This looks like a config (class ...), not SQF; only SQF is checked." }];
@@ -96,6 +105,8 @@ export function lint(code, syntax) {
   const assigned = new Set();
   tokens.forEach((t, i) => {
     if (t.type === "ident" && tokens[i + 1]?.value === "=") assigned.add(t.value.toLowerCase());
+    // a name in a string is a variable defined elsewhere: isNil "BIS_fnc_music_spawn", setVariable ["x", ...]
+    if (t.type === "string" && /^.[A-Za-z_]\w*.$/.test(t.value)) assigned.add(t.value.slice(1, -1).toLowerCase());
   });
   const defined = new Set([...code.matchAll(/^\s*#define\s+(\w+)/gm)].map((m) => m[1].toLowerCase()));
   const hinted = new Set();
@@ -147,6 +158,8 @@ export function lint(code, syntax) {
     if (k === "command") {
       const c = commands[low];
       notice(diagnostics, at, c);
+      if (low === "format" || low === "formattext") formatArgs(diagnostics, tokens, i, c, defined);
+      if (events && EVENT_COMMANDS[low]) eventName(diagnostics, tokens, i, c, EVENT_COMMANDS[low], events);
       const f = c.forms || [];
       if (!f.length) continue;
       const left = valueEnd(prev, t);
@@ -226,6 +239,84 @@ function skipConfigClasses(tokens) {
   return out;
 }
 
+/** Tokens of the array literal that starts at tokens[i] (a "["), split into top-level elements; null if unclosed. */
+function arrayElements(tokens, i) {
+  const elements = [[]];
+  let depth = 0;
+  for (let j = i; j < tokens.length; j++) {
+    const v = tokens[j].type === "punct" ? tokens[j].value : null;
+    if (v === "[" || v === "(" || v === "{") {
+      if (depth++ === 0) continue;
+    } else if (v === "]" || v === ")" || v === "}") {
+      if (--depth === 0) return elements;
+    } else if (v === "," && depth === 1) {
+      elements.push([]);
+      continue;
+    }
+    elements.at(-1).push(tokens[j]);
+  }
+  return null;
+}
+
+const unquote = (t) => t.value.slice(1, -1).replaceAll(t.value[0] + t.value[0], t.value[0]);
+
+/** format ["%1 and %2", a]: a placeholder without a value. Extra values are harmless and not reported. */
+function formatArgs(diagnostics, tokens, i, c, defined) {
+  if (tokens[i + 1]?.value !== "[") return;
+  const elements = arrayElements(tokens, i + 1);
+  if (!elements || elements[0].length !== 1 || elements[0][0].type !== "string") return; // format [localize "STR_x", ...]
+  // a macro can expand to several values
+  if (elements.flat().some((t) => t.type === "ident" && (defined.has(t.value.toLowerCase()) || /^[A-Z][A-Z0-9_]*$/.test(t.value)))) return;
+  const used = [...unquote(elements[0][0]).matchAll(/%(\d+)/g)].map((m) => Number(m[1]));
+  const max = Math.max(0, ...used);
+  const passed = elements.length - 1;
+  if (max > passed) {
+    const t = tokens[i];
+    diagnostics.push({
+      line: t.line,
+      col: t.col,
+      severity: "error",
+      message: `${c.name} uses %${max} but passes ${passed} value${passed === 1 ? "" : "s"} after the format string.`,
+    });
+  }
+}
+
+// Commands that take an event handler name, by the kind of events they accept (see Data#events)
+const EVENT_KINDS = {
+  object: ["addEventHandler", "removeEventHandler", "removeAllEventHandlers"],
+  mp: ["addMPEventHandler", "removeMPEventHandler", "removeAllMPEventHandlers"],
+  mission: ["addMissionEventHandler", "removeMissionEventHandler", "removeAllMissionEventHandlers"],
+  music: ["addMusicEventHandler", "removeMusicEventHandler", "removeAllMusicEventHandlers"],
+  ui: [
+    "ctrlAddEventHandler", "ctrlRemoveEventHandler", "ctrlRemoveAllEventHandlers", "ctrlSetEventHandler",
+    "displayAddEventHandler", "displayRemoveEventHandler", "displayRemoveAllEventHandlers", "displaySetEventHandler",
+  ],
+};
+const EVENT_COMMANDS = Object.fromEntries(
+  Object.entries(EVENT_KINDS).flatMap(([kind, names]) => names.map((n) => [n.toLowerCase(), kind])),
+);
+
+/** addEventHandler ["Kiled", ...]: an event that does not exist, or that another command adds. */
+function eventName(diagnostics, tokens, i, c, kind, events) {
+  const known = events[kind];
+  if (!known?.size) return; // the page could not be read
+  let t = tokens[i + 1];
+  if (t?.value === "[") t = tokens[i + 2];
+  if (t?.type !== "string") return; // a variable or a macro
+  const name = unquote(t);
+  const low = name.toLowerCase();
+  if (known.has(low) || (kind === "ui" && known.has(low.replace(/^on/, "")))) return;
+  const at = { line: t.line, col: t.col };
+  const other = Object.keys(EVENT_KINDS).find((k) => k !== kind && events[k]?.has(low));
+  if (other) {
+    diagnostics.push({ ...at, severity: "warning", message: `"${name}" is not an event of ${c.name}; add it with ${EVENT_KINDS[other][0]}.` });
+    return;
+  }
+  const near = closest(low, [...known.keys()], Math.max(2, Math.floor(low.length / 4)));
+  const hint = near.length ? ` Did you mean ${near.map((n) => known.get(n)).join(", ")}?` : "";
+  diagnostics.push({ ...at, severity: "warning", message: `Unknown event "${name}" for ${c.name}.${hint}` });
+}
+
 function notice(diagnostics, at, entry) {
   if (!entry) return;
   const instead = entry.replaced_by?.length ? ` Use ${entry.replaced_by.join(" or ")} instead.` : "";
@@ -277,10 +368,17 @@ function distance(a, b, max) {
   return prev[b.length];
 }
 
+const MAX_SHOWN = 100; // a whole mod in one call should not flood the context
+
 export function format(diagnostics, code) {
   const lines = code.split("\n").length;
   const count = (s) => diagnostics.filter((d) => d.severity === s).length;
   const head = `Checked ${lines} line${lines === 1 ? "" : "s"}: ${count("error")} errors, ${count("warning")} warnings, ${count("info")} notes.`;
   if (!diagnostics.length) return head + " No problems found.";
-  return [head, "", ...diagnostics.map((d) => `${d.line}:${d.col} ${d.severity}: ${d.message}`)].join("\n");
+  // errors first, so a cut list still shows what must be fixed
+  const order = { error: 0, warning: 1, info: 2 };
+  const shown = diagnostics.length > MAX_SHOWN ? [...diagnostics].sort((a, b) => order[a.severity] - order[b.severity]).slice(0, MAX_SHOWN) : diagnostics;
+  const rest = diagnostics.length - shown.length;
+  const more = rest ? ["", `... ${rest} more not shown; fix these and check again, or check the code in parts.`] : [];
+  return [head, "", ...shown.map((d) => `${d.line}:${d.col} ${d.severity}: ${d.message}`), ...more].join("\n");
 }
