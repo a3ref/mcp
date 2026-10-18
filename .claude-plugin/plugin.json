@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "a3ref",
   "version": "0.2.0",
   "description": "Arma 3 scripting reference for Claude: search and read every SQF command, BIS_fnc function and concept page from the BI Community Wiki (updated daily), and check SQF code for made-up, misused or deprecated commands.",
