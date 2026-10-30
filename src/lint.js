@@ -325,8 +325,11 @@ function notice(diagnostics, at, entry) {
   } else if (entry.status === "broken") {
     diagnostics.push({ ...at, severity: "warning", message: `${entry.name} is listed as broken on the wiki.${instead}` });
   }
-  if (entry.branch) {
-    diagnostics.push({ ...at, severity: "info", message: `${entry.name} only exists in ${entry.branch} builds of the game.` });
+  // a list since the site's format 2 (["diag", "prof"]); a string ("diag prof") in older syntax.json copies
+  const branches = typeof entry.branch === "string" ? entry.branch.split(/\s+/).filter(Boolean) : entry.branch || [];
+  if (branches.length) {
+    const list = branches.length > 1 ? `${branches.slice(0, -1).join(", ")} and ${branches.at(-1)}` : branches[0];
+    diagnostics.push({ ...at, severity: "info", message: `${entry.name} only exists in ${list} builds of the game.` });
   }
 }
 

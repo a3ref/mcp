@@ -37057,8 +37057,10 @@ function notice(diagnostics, at, entry) {
   } else if (entry.status === "broken") {
     diagnostics.push({ ...at, severity: "warning", message: `${entry.name} is listed as broken on the wiki.${instead}` });
   }
-  if (entry.branch) {
-    diagnostics.push({ ...at, severity: "info", message: `${entry.name} only exists in ${entry.branch} builds of the game.` });
+  const branches = typeof entry.branch === "string" ? entry.branch.split(/\s+/).filter(Boolean) : entry.branch || [];
+  if (branches.length) {
+    const list = branches.length > 1 ? `${branches.slice(0, -1).join(", ")} and ${branches.at(-1)}` : branches[0];
+    diagnostics.push({ ...at, severity: "info", message: `${entry.name} only exists in ${list} builds of the game.` });
   }
 }
 function suggest(low, names, table) {
@@ -37146,7 +37148,7 @@ function outline(entry, page, url2) {
 }
 
 // src/index.js
-var VERSION = "0.2.0";
+var VERSION = "0.3.0";
 var data = new Data();
 var INSTRUCTIONS = `Arma 3 scripting reference (SQF), mirrored daily from the Bohemia Interactive Community Wiki.
 Use it whenever you write, review or debug Arma 3 scripts, missions or mods:
@@ -37195,7 +37197,7 @@ server.registerTool(
     inputSchema: {
       name: external_exports.string().min(1).describe('e.g. "createVehicle", "BIS_fnc_spawnGroup", "!=", "Event Handlers", "Position"'),
       type: external_exports.enum(["command", "function", "topic"]).optional().describe('Only when a command and a concept page share a name: "Position", "Group", "Side"'),
-      format: external_exports.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields"),
+      format: external_exports.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields, empty ones left out (https://a3ref.github.io/schema.json)"),
       section: external_exports.string().optional().describe('Topic pages only: heading to read, with its subsections, e.g. "HandleDamage"')
     },
     annotations: readOnly

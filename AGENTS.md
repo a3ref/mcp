@@ -52,7 +52,10 @@ npm run smoke      # bundle against the live site (network)
   words in variable positions are global variables, and every new check must stay quiet on correct code.
 - **Data contract**: the server relies on `index.json` (`name`, `type`, `syntax`, `summary`, `groups`, `status`,
   `operator`, `aliases`, `md`, `json`), `syntax.json` (`commands`/`functions` by lower-case name: `forms`, `status`,
-  `replaced_by`, `branch`, `syntax`), topic pages' `sections` and `changes.json`. They are produced by
+  `replaced_by`, `branch`, `syntax`; `branch` is a list such as `["diag", "prof"]` since the site's format 2, a
+  string before, and `notice` in `src/lint.js` reads both), topic pages' `sections` and `changes.json`. `get`
+  with `format: "json"` passes page records through unchanged; their fields are described by the site's
+  `schema.json`. They are produced by
   `biwiki/render.py` in [a3ref/a3ref.github.io](https://github.com/a3ref/a3ref.github.io); change both sides
   together.
 - **Versions**: `VERSION` in `src/index.js`, `package.json` and `.claude-plugin/plugin.json` stay equal.

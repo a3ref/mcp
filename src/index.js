@@ -7,7 +7,7 @@ import { search } from "./search.js";
 import { lint, format, closest } from "./lint.js";
 import { OUTLINE_OVER, pickSections, renderSections, outline } from "./pages.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const data = new Data();
 
 const INSTRUCTIONS = `Arma 3 scripting reference (SQF), mirrored daily from the Bohemia Interactive Community Wiki.
@@ -64,7 +64,7 @@ server.registerTool(
       name: z.string().min(1).describe('e.g. "createVehicle", "BIS_fnc_spawnGroup", "!=", "Event Handlers", "Position"'),
       type: z.enum(["command", "function", "topic"]).optional()
         .describe('Only when a command and a concept page share a name: "Position", "Group", "Side"'),
-      format: z.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields"),
+      format: z.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields, empty ones left out (https://a3ref.github.io/schema.json)"),
       section: z.string().optional().describe('Topic pages only: heading to read, with its subsections, e.g. "HandleDamage"'),
     },
     annotations: readOnly,

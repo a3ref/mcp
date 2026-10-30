@@ -25,7 +25,9 @@ const syntax = {
       name: "ctrlSetEventHandler", forms: ["binary"], status: "deprecated", replaced_by: ["ctrlAddEventHandler"],
       syntax: ["control ctrlSetEventHandler [name, code]"],
     },
-    diag_fps: { name: "diag_fps", forms: ["nullary"], status: "ok", branch: "diag", syntax: ["diag_fps"] },
+    diag_fps: { name: "diag_fps", forms: ["nullary"], status: "ok", branch: ["diag"], syntax: ["diag_fps"] },
+    diag_captureframe: { name: "diag_captureFrame", forms: ["unary"], status: "ok", branch: ["diag", "prof"], syntax: ["diag_captureFrame frame"] },
+    diag_list: { name: "diag_list", forms: ["unary"], status: "ok", branch: "diag prof", syntax: ["diag_list mode"] },
     objnull: { name: "objNull", forms: ["nullary"], status: "ok", syntax: ["objNull"] },
     isnil: { name: "isNil", forms: ["unary"], status: "ok", syntax: ["isNil variable"] },
     select: { name: "select", forms: ["binary"], status: "ok", syntax: ["array select index"] },
@@ -75,7 +77,12 @@ test("unknown BIS functions, deprecated commands and diag-only commands", () => 
   const d = lint('_c ctrlSetEventHandler ["ButtonClick", ""];', syntax);
   assert.equal(d[0].severity, "warning");
   assert.match(d[0].message, /deprecated\. Use ctrlAddEventHandler instead/);
-  assert.equal(lint("hint str diag_fps;", syntax)[0].severity, "info");
+  const diag = lint("hint str diag_fps;", syntax);
+  assert.equal(diag[0].severity, "info");
+  assert.match(diag[0].message, /diag_fps only exists in diag builds of the game\./);
+  // branch is a list in syntax.json format 2; older copies of the site have one string
+  assert.match(lint("diag_captureFrame 1;", syntax)[0].message, /only exists in diag and prof builds/);
+  assert.match(lint("diag_list 1;", syntax)[0].message, /only exists in diag and prof builds/);
 });
 
 test("typos of commands in variable position are a hint, ordinary variable names are not", () => {
