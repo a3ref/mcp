@@ -7,7 +7,7 @@ import { search } from "./search.js";
 import { lint, format, closest } from "./lint.js";
 import { OUTLINE_OVER, pickSections, renderSections, outline } from "./pages.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.3.1";
 const data = new Data();
 
 const INSTRUCTIONS = `Arma 3 scripting reference (SQF), mirrored daily from the Bohemia Interactive Community Wiki.
