@@ -1,4 +1,4 @@
-// Bundles the server into one dependency-free file, so `npx github:a3ref/mcp` and the plugin need no install.
+// Bundles the server into one dependency-free file, so the npm package and the plugins need no install.
 import { build } from "esbuild";
 
 await build({

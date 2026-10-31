@@ -18,6 +18,6 @@ test("every plugin starts the same server", () => {
   const servers = (path) => JSON.parse(read(path)).mcpServers;
   assert.deepEqual(servers(".mcp.json").a3ref.args, ["${CLAUDE_PLUGIN_ROOT}/dist/a3ref-mcp.mjs"]);
   assert.deepEqual(servers(".codex-plugin/mcp.json").a3ref, { command: "node", args: ["./dist/a3ref-mcp.mjs"], cwd: "." });
-  assert.deepEqual(servers("mcp_config.json").a3ref, { command: "npx", args: ["-y", "github:a3ref/mcp"] });
+  assert.deepEqual(servers("mcp_config.json").a3ref, { command: "npx", args: ["-y", "a3ref-mcp"] });
   assert.equal(JSON.parse(read(".codex-plugin/plugin.json")).mcpServers, "./.codex-plugin/mcp.json");
 });

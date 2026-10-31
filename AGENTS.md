@@ -18,10 +18,10 @@ from [a3ref/data](https://github.com/a3ref/data)) and bundles no data.
 | `src/lint.js` | SQF tokenizer and static checks for `lint_sqf` |
 | `test/*.test.js` | offline unit tests (`node --test`) |
 | `test/smoke.mjs` | starts `dist/` and calls every tool against the live site |
-| `dist/a3ref-mcp.mjs` | **generated** single-file bundle (esbuild via `build.mjs`), committed so `npx github:a3ref/mcp` and the plugin need no install |
+| `dist/a3ref-mcp.mjs` | **generated** single-file bundle (esbuild via `build.mjs`), committed so the plugins need no install; the npm package `a3ref-mcp` (`npx -y a3ref-mcp`) ships the same file |
 | `.claude-plugin/`, `.mcp.json`, `skills/sqf/SKILL.md` | Claude Code marketplace, plugin manifest, server config and the `sqf` skill |
 | `.codex-plugin/` | Codex plugin manifest and server config (`cwd` `.` is the plugin root); Codex reads the marketplace from `.claude-plugin/marketplace.json` |
-| `plugin.json`, `mcp_config.json` | Antigravity plugin manifest and server config at the repository root, where `agy plugin install <GitHub URL>` looks; no plugin-root variable, so it runs `npx github:a3ref/mcp` |
+| `plugin.json`, `mcp_config.json` | Antigravity plugin manifest and server config at the repository root, where `agy plugin install <GitHub URL>` looks; no plugin-root variable, so it runs `npx -y a3ref-mcp` |
 
 ## Commands
 
@@ -63,6 +63,9 @@ npm run smoke      # bundle against the live site (network)
 - **Versions**: `VERSION` in `src/index.js`, `package.json`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`
   and `plugin.json` stay equal (`test/version.test.js`).
 - Pushing to `main` publishes the plugin to every user; get the maintainer's consent first.
+- **npm**: the install instructions use the npm package (`npx -y a3ref-mcp`), not `github:a3ref/mcp`: npm 12 refuses
+  git dependencies by default (EALLOWGIT). A new version reaches npm users only when it is published there
+  (`npm publish`, by the maintainer).
 
 ## Conventions
 

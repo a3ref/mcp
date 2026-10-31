@@ -45,7 +45,7 @@ The plugin also adds the `sqf` skill, which tells Claude to check commands and l
 ### Claude Code (server only)
 
 ```sh
-claude mcp add a3ref -- npx -y github:a3ref/mcp
+claude mcp add a3ref -- npx -y a3ref-mcp
 ```
 
 ### Codex (plugin: MCP server + skill)
@@ -56,7 +56,7 @@ codex plugin add a3ref@a3ref
 ```
 
 Or, after adding the marketplace, install `a3ref` from the Plugins directory of the ChatGPT desktop app. The CLI,
-the IDE extension and the app share the plugin. Server only: `codex mcp add a3ref -- npx -y github:a3ref/mcp`.
+the IDE extension and the app share the plugin. Server only: `codex mcp add a3ref -- npx -y a3ref-mcp`.
 
 ### Antigravity (plugin: MCP server + skill)
 
@@ -76,7 +76,7 @@ Plugins installed with the CLI or the Antigravity app are available in the app, 
   "mcp": {
     "a3ref": {
       "type": "local",
-      "command": ["npx", "-y", "github:a3ref/mcp"],
+      "command": ["npx", "-y", "a3ref-mcp"],
       "enabled": true
     }
   }
@@ -92,7 +92,7 @@ For the skill as well, save [skills/sqf/SKILL.md](skills/sqf/SKILL.md) as `~/.co
   "mcpServers": {
     "a3ref": {
       "command": "npx",
-      "args": ["-y", "github:a3ref/mcp"]
+      "args": ["-y", "a3ref-mcp"]
     }
   }
 }
@@ -110,7 +110,7 @@ Claude Desktop: `claude_desktop_config.json`; Cursor: `.cursor/mcp.json`; Windsu
     "a3ref": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "github:a3ref/mcp"]
+      "args": ["-y", "a3ref-mcp"]
     }
   }
 }
