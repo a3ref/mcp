@@ -30,7 +30,8 @@ The `format` and event handler checks follow [HEMTT](https://github.com/BrettMay
 
 ## Install
 
-Requires Node.js 18 or newer. The server is a single file with no dependencies to install.
+Requires Node.js 18 or newer. The server is a single file with no dependencies to install. Step-by-step
+instructions for every client: https://a3ref.github.io/mcp.html
 
 ### Claude Code (plugin: MCP server + skill)
 
@@ -46,6 +47,24 @@ The plugin also adds the `sqf` skill, which tells Claude to check commands and l
 ```sh
 claude mcp add a3ref -- npx -y github:a3ref/mcp
 ```
+
+### Codex (plugin: MCP server + skill)
+
+```sh
+codex plugin marketplace add a3ref/mcp
+codex plugin add a3ref@a3ref
+```
+
+Or, after adding the marketplace, install `a3ref` from the Plugins directory of the ChatGPT desktop app. The CLI,
+the IDE extension and the app share the plugin. Server only: `codex mcp add a3ref -- npx -y github:a3ref/mcp`.
+
+### Antigravity (plugin: MCP server + skill)
+
+```sh
+agy plugin install https://github.com/a3ref/mcp
+```
+
+Plugins installed with the CLI or the Antigravity app are available in the app, the IDE and the CLI.
 
 ### Claude Desktop, Cursor, Windsurf and other clients
 

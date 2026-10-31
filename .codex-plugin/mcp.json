@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "a3ref": {
+      "command": "node",
+      "args": ["./dist/a3ref-mcp.mjs"],
+      "cwd": "."
+    }
+  }
+}

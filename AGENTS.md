@@ -20,6 +20,8 @@ from [a3ref/data](https://github.com/a3ref/data)) and bundles no data.
 | `test/smoke.mjs` | starts `dist/` and calls every tool against the live site |
 | `dist/a3ref-mcp.mjs` | **generated** single-file bundle (esbuild via `build.mjs`), committed so `npx github:a3ref/mcp` and the plugin need no install |
 | `.claude-plugin/`, `.mcp.json`, `skills/sqf/SKILL.md` | Claude Code marketplace, plugin manifest, server config and the `sqf` skill |
+| `.codex-plugin/` | Codex plugin manifest and server config (`cwd` `.` is the plugin root); Codex reads the marketplace from `.claude-plugin/marketplace.json` |
+| `plugin.json`, `mcp_config.json` | Antigravity plugin manifest and server config at the repository root, where `agy plugin install <GitHub URL>` looks; no plugin-root variable, so it runs `npx github:a3ref/mcp` |
 
 ## Commands
 
@@ -58,7 +60,8 @@ npm run smoke      # bundle against the live site (network)
   `schema.json`. They are produced by
   `biwiki/render.py` in [a3ref/a3ref.github.io](https://github.com/a3ref/a3ref.github.io); change both sides
   together.
-- **Versions**: `VERSION` in `src/index.js`, `package.json` and `.claude-plugin/plugin.json` stay equal.
+- **Versions**: `VERSION` in `src/index.js`, `package.json`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`
+  and `plugin.json` stay equal (`test/version.test.js`).
 - Pushing to `main` publishes the plugin to every user; get the maintainer's consent first.
 
 ## Conventions

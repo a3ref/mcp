@@ -1,0 +1,11 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "a3ref",
+  "displayName": "a3ref: Arma 3 SQF reference",
+  "version": "0.3.0",
+  "description": "Arma 3 scripting reference for Antigravity: search and read every SQF command, BIS_fnc function and concept page from the BI Community Wiki (updated daily), and check SQF code for made-up, misused or deprecated commands.",
+  "suggestedPrompts": [
+    "Which command deletes a vehicle with its crew? Check the locality.",
+    "Spawn a group of four NATO riflemen near the player, then lint the script."
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "a3ref": {
+      "command": "npx",
+      "args": ["-y", "github:a3ref/mcp"]
+    }
+  }
+}
