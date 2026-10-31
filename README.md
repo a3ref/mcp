@@ -66,6 +66,25 @@ agy plugin install https://github.com/a3ref/mcp
 
 Plugins installed with the CLI or the Antigravity app are available in the app, the IDE and the CLI.
 
+### OpenCode
+
+`~/.config/opencode/opencode.json` (or `opencode.json` in a project):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "a3ref": {
+      "type": "local",
+      "command": ["npx", "-y", "github:a3ref/mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+For the skill as well, save [skills/sqf/SKILL.md](skills/sqf/SKILL.md) as `~/.config/opencode/skills/sqf/SKILL.md`.
+
 ### Claude Desktop, Cursor, Windsurf and other clients
 
 ```json
