@@ -1,0 +1,31 @@
+# Publishes the npm package a3ref-mcp when a version tag (v0.3.1, ...) is pushed. Trusted publishing: npm trusts this
+# workflow file of a3ref/mcp through GitHub's OIDC token, so no npm token is stored anywhere. Set up once by the
+# maintainer: npm trust github a3ref-mcp --file publish.yml --repo a3ref/mcp --allow-publish
+name: Publish to npm
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # the OIDC token npm exchanges for a short-lived publish token
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest  # trusted publishing needs npm 11.5.1 or newer; Node 22 ships npm 10
+      - run: npm ci
+      - run: npm test
+      - name: dist/ is up to date and the tag matches the version
+        run: |
+          npm run build
+          git diff --exit-code -- dist/
+          test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - run: npm publish --access public

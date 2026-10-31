@@ -64,8 +64,9 @@ npm run smoke      # bundle against the live site (network)
   and `plugin.json` stay equal (`test/version.test.js`).
 - Pushing to `main` publishes the plugin to every user; get the maintainer's consent first.
 - **npm**: the install instructions use the npm package (`npx -y a3ref-mcp`), not `github:a3ref/mcp`: npm 12 refuses
-  git dependencies by default (EALLOWGIT). A new version reaches npm users only when it is published there
-  (`npm publish`, by the maintainer).
+  git dependencies by default (EALLOWGIT). A new version reaches npm users only when it is published there.
+- **Release**: bump the version everywhere (see Versions), commit, then tag `vX.Y.Z` and push the tag (maintainer's
+  consent). `.github/workflows/publish.yml` tests the tag and publishes it to npm by trusted publishing, no token.
 
 ## Conventions
 
