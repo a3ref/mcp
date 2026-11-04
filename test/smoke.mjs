@@ -16,6 +16,8 @@ assert.deepEqual(tools, ["get", "lint_sqf", "list_group", "recent_changes", "sea
 assert.match(await call("search", { query: "setpos", limit: 3 }), /- setPos /);
 assert.match(await call("get", { name: "SETPOS" }), /^---\nname: "setPos"/);
 assert.match(await call("get", { name: "Event Handlers", section: "HandleDamage" }), /HandleDamage/);
+assert.match(await call("search", { query: "AnimStateChanged", limit: 1 }), /- AnimStateChanged — object event handler/);
+assert.match(await call("get", { name: "AnimStateChanged" }), /^# AnimStateChanged: object event handler[\s\S]*addEventHandler \["AnimStateChanged"/);
 assert.match(await call("get", { name: "Event Handlers" }), /only its outline is shown/);
 assert.match(await call("get", { name: "west" }), /^---\nname: "west"/);
 assert.match(await call("get", { name: "Position", type: "topic" }), /^---\nname: "Position"\ntype: topic/);
