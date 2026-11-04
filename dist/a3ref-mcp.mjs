@@ -37173,7 +37173,7 @@ function outline(entry, page, url2) {
 }
 
 // src/index.js
-var VERSION = "0.3.1";
+var VERSION = "0.3.2";
 var data = new Data();
 var INSTRUCTIONS = `Arma 3 scripting reference (SQF), mirrored daily from the Bohemia Interactive Community Wiki.
 Use it whenever you write, review or debug Arma 3 scripts, missions or mods:
