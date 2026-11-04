@@ -12,7 +12,7 @@ from [a3ref/data](https://github.com/a3ref/data)) and bundles no data.
 | Path | Contents |
 |---|---|
 | `src/index.js` | server: instructions and the five tools (`search`, `get`, `list_group`, `lint_sqf`, `recent_changes`) |
-| `src/data.js` | fetches `index.json`, `syntax.json`, `changes.json` and pages from the site; 1 h in-memory cache; `A3REF_BASE_URL` overrides the site |
+| `src/data.js` | fetches `index.json`, `syntax.json`, `changes.json`, `events.json` and pages from the site; 1 h in-memory cache; `A3REF_BASE_URL` overrides the site |
 | `src/search.js` | ranking for `search` |
 | `src/pages.js` | sections and outlines of topic pages for `get` |
 | `src/lint.js` | SQF tokenizer and static checks for `lint_sqf` |
@@ -55,7 +55,8 @@ npm run smoke      # bundle against the live site (network)
 - **Data contract**: the server relies on `index.json` (`name`, `type`, `syntax`, `summary`, `groups`, `status`,
   `operator`, `aliases`, `md`, `json`), `syntax.json` (`commands`/`functions` by lower-case name: `forms`, `status`,
   `replaced_by`, `branch`, `syntax`; `branch` is a list such as `["diag", "prof"]` since the site's format 2, a
-  string before, and `notice` in `src/lint.js` reads both), topic pages' `sections` and `changes.json`. `get`
+  string before, and `notice` in `src/lint.js` reads both), topic pages' `sections`, `changes.json` and `events.json` (`name`, `kind`, `page`, `section`, `md`, `json`,
+  `summary`, `arma3_since`; optional: without it `search` and `get` work on pages only). `get`
   with `format: "json"` passes page records through unchanged; their fields are described by the site's
   `schema.json`. They are produced by
   `biwiki/render.py` in [a3ref/a3ref.github.io](https://github.com/a3ref/a3ref.github.io); change both sides

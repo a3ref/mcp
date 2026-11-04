@@ -103,6 +103,34 @@ export class Data {
     return this.get("changes.json");
   }
 
+  /**
+   * The site's events.json as search entries of type "event" (one per event handler section of the event handler
+   * pages), or none while it cannot be read: a site built before events.json existed answers 404, and search must
+   * still work. A miss is not asked again for RETRY.
+   */
+  async eventEntries() {
+    if (this._eventsMiss && Date.now() - this._eventsMiss < RETRY) return [];
+    let raw;
+    try {
+      raw = await this.get("events.json");
+    } catch {
+      this._eventsMiss = Date.now();
+      return [];
+    }
+    if (this._eventsFor !== raw) {
+      this._eventsFor = raw;
+      // the fields search() and line() read; groups make "mission event" queries match
+      this._events = raw.items.map((e) => ({ ...e, type: "event", groups: [`${e.kind} event handlers`], syntax: [], status: "ok", aliases: [] }));
+    }
+    return this._events;
+  }
+
+  /** Events of that name: "AnimStateChanged"; "ButtonClick" or "onButtonClick" for the UI event onButtonClick. */
+  async findEvents(name) {
+    const k = normalise(name);
+    return (await this.eventEntries()).filter((e) => normalise(e.name) === k || normalise(e.name.replace(/^on(?=[A-Z])/, "")) === k);
+  }
+
   /** Event handler names by kind (object, mp, mission, music, ui), read from the headings of the event handler pages. */
   async events() {
     const page = async (name) => {

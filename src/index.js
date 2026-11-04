@@ -12,7 +12,7 @@ const data = new Data();
 
 const INSTRUCTIONS = `Arma 3 scripting reference (SQF), mirrored daily from the Bohemia Interactive Community Wiki.
 Use it whenever you write, review or debug Arma 3 scripts, missions or mods:
-- search: find commands, BIS_fnc_* functions and concept pages by name or by what they do.
+- search: find commands, BIS_fnc_* functions, event handlers and concept pages by name or by what they do.
 - get: read one page (syntax, typed parameters, return value, locality, examples). Check status: deprecated and broken pages name a replacement.
 - lint_sqf: check SQF before presenting it: catches made-up commands, wrong operand forms, unknown BIS_fnc_* functions and deprecated commands.
 Do not rely on memory for SQF syntax; names are often similar and many commands are binary (left operand required).`;
@@ -24,6 +24,10 @@ const text = (t) => ({ content: [{ type: "text", text: t }] });
 const fail = (t) => ({ content: [{ type: "text", text: t }], isError: true });
 
 function line(e) {
+  if (e.type === "event") {
+    const since = e.arma3_since ? ` (Arma 3 v${e.arma3_since})` : "";
+    return `- ${e.name} — ${e.kind} event handler${since}: ${e.summary || "(no summary)"}\n  section "${e.section}" of ${data.base}${e.md}`;
+  }
   const flag = e.status && e.status !== "ok" ? ` [${e.status}]` : "";
   const op = e.operator ? ` (operator ${e.operator})` : "";
   const syntax = e.syntax?.length ? `\n  syntax: ${e.syntax.slice(0, 3).join(" | ")}` : "";
@@ -35,18 +39,20 @@ server.registerTool(
   {
     title: "Search the Arma 3 scripting reference",
     description:
-      "Find Arma 3 SQF scripting commands, BIS_fnc_* functions and concept pages (data types, locality, event handlers) " +
+      "Find Arma 3 SQF scripting commands, BIS_fnc_* functions, event handlers (object, mission, UI, Eden Editor, ...) and " +
+      "concept pages (data types, locality) " +
       "by name, partial name, operator symbol or keywords describing what they do. Returns names, syntax and one-line summaries.",
     inputSchema: {
-      query: z.string().min(1).describe('Name or keywords, e.g. "setPos", "spawnGroup", "attach object to vehicle", ">>"'),
-      type: z.enum(["any", "command", "function", "topic"]).default("any").describe("Limit to one kind of page"),
+      query: z.string().min(1).describe('Name or keywords, e.g. "setPos", "spawnGroup", "attach object to vehicle", ">>", "AnimStateChanged"'),
+      type: z.enum(["any", "command", "function", "topic", "event"]).default("any").describe("Limit to one kind of entry"),
       limit: z.number().int().min(1).max(50).default(10).describe("Maximum number of results"),
     },
     annotations: readOnly,
   },
   async ({ query, type, limit }) => {
     const { items } = await data.index();
-    const hits = search(items, query, { type, limit });
+    const events = type === "any" || type === "event" ? await data.eventEntries() : [];
+    const hits = search(events.length ? [...items, ...events] : items, query, { type, limit });
     if (!hits.length) return text(`Nothing matches "${query}". Try fewer or different keywords, or part of the name.`);
     return text(`${hits.length} result${hits.length === 1 ? "" : "s"} for "${query}":\n\n${hits.map(line).join("\n")}`);
   },
@@ -59,24 +65,29 @@ server.registerTool(
     description:
       "Read the full page of an Arma 3 command, function or concept: description, every syntax with typed parameters " +
       "and return value, locality, examples and community notes. Names are matched case-insensitively; operators by symbol; " +
-      "BIS_fnc_ may be omitted. Long concept pages (e.g. Event Handlers) return an outline: pass `section` to read a part.",
+      "BIS_fnc_ may be omitted. An event handler name (\"HandleDamage\", \"Draw3D\", \"onLoad\") returns its section. " +
+      "Long concept pages (e.g. Event Handlers) return an outline: pass `section` to read a part.",
     inputSchema: {
       name: z.string().min(1).describe('e.g. "createVehicle", "BIS_fnc_spawnGroup", "!=", "Event Handlers", "Position"'),
-      type: z.enum(["command", "function", "topic"]).optional()
-        .describe('Only when a command and a concept page share a name: "Position", "Group", "Side"'),
+      type: z.enum(["command", "function", "topic", "event"]).optional()
+        .describe('Only when names collide: a command and a concept page ("Position", "Group"), a command and an event ("Fuel")'),
       format: z.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields, empty ones left out (https://a3ref.github.io/schema.json)"),
       section: z.string().optional().describe('Topic pages only: heading to read, with its subsections, e.g. "HandleDamage"'),
     },
     annotations: readOnly,
   },
   async ({ name, type, format, section }) => {
-    const all = await data.lookup(name, type);
+    const all = type === "event" ? [] : await data.lookup(name, type);
+    const events = section || (type && type !== "event") ? [] : await data.findEvents(name);
+    if (events.length && (type === "event" || !all.length)) return text(await eventSections(events, format));
+    if (type === "event") return fail(`No event handler named "${name}". Try search with type "event" and part of the name.`);
     // a section is asked of a concept page: "Position" with a section means the topic, not the position command
     const entry = (section && all.find((e) => e.type === "topic")) || all[0];
     if (!entry) return fail(await notFound(name, type));
     const url = data.base + entry.md;
     const others = all.filter((e) => e.type !== entry.type);
-    const also = others.map((e) => `\n\nAlso a ${e.type} page named "${e.name}": call get with type "${e.type}".`).join("");
+    const also = others.map((e) => `\n\nAlso a ${e.type} page named "${e.name}": call get with type "${e.type}".`).join("") +
+      (events.length ? `\n\nAlso an event handler named "${events[0].name}": call get with type "event".` : "");
     if (section && entry.type === "topic") {
       const page = await data.page(entry, "json");
       const parts = pickSections(page.sections, section);
@@ -93,6 +104,20 @@ server.registerTool(
     return text(page + note + also);
   },
 );
+
+/** The sections of same-named events ("Deleted": object, group and projectile), each under what it is. */
+async function eventSections(events, format) {
+  const parts = await Promise.all(events.map(async (e) => {
+    const page = await data.get(e.json);
+    return { event: e, sections: pickSections(page.sections, e.section) };
+  }));
+  if (format === "json") {
+    return JSON.stringify(parts.map(({ event: { type, groups, syntax, status, aliases, ...e }, sections }) => ({ ...e, sections })));
+  }
+  return parts.map(({ event: e, sections }) =>
+    `# ${e.name}: ${e.kind} event handler (${e.page})\n\n${renderSections(sections)}\n\nSource: ${data.base}${e.md}`,
+  ).join("\n\n---\n\n");
+}
 
 async function notFound(name, type) {
   const { items, byKey } = await data.index();

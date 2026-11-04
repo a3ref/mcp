@@ -68,3 +68,27 @@ test("event names come from the headings of the event handler pages", () => {
   assert.deepEqual([...kinds.mission.values()], ["Draw3D", "HandleDisconnect"]);
   assert.deepEqual([...kinds.ui.values()], ["ButtonClick", "LBSelChanged"]);
 });
+
+test("events.json entries are found by name; a site without events.json still searches", async () => {
+  const ev = (name, kind, section = name) => ({ name, kind, section, page: "Arma 3: Event Handlers", md: "topics/Event_Handlers.md",
+    json: "topics/Event_Handlers.json", html: "topics/Event_Handlers.html", anchor: name.toLowerCase(), summary: "", arma3_since: null });
+  const events = [ev("Deleted", "object", "Deleted (Entity)"), ev("Deleted", "group", "Deleted (Group)"), ev("onButtonClick", "UI")];
+  let calls = 0;
+  const data = new Data({
+    fetchImpl: async (url) => {
+      calls++;
+      return url.endsWith("events.json") ? { ok: true, json: async () => ({ items: events }) } : { ok: false, status: 404 };
+    },
+  });
+  assert.deepEqual((await data.findEvents("deleted")).map((e) => e.kind), ["object", "group"]);
+  assert.equal((await data.findEvents("ButtonClick"))[0].name, "onButtonClick");
+  assert.equal((await data.findEvents("onButtonClick"))[0].type, "event");
+  assert.deepEqual(await data.findEvents("Killed"), []);
+  assert.equal(calls, 1);
+
+  const old = new Data({ fetchImpl: async () => { calls++; return { ok: false, status: 404 }; } });
+  calls = 0;
+  assert.deepEqual(await old.eventEntries(), []);
+  assert.deepEqual(await old.eventEntries(), []); // the miss is not asked again at once
+  assert.equal(calls, 1);
+});

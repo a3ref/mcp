@@ -18,7 +18,8 @@ wrong form, so check instead of recalling.
    Pages with `status: deprecated` or `broken` name what to use instead.
 3. Concepts such as data types, `Position` formats, locality, the scheduler and event handlers have topic pages:
    `get` "Multiplayer Scripting", "Position" with type "topic" (`position` is also a command), "Event Handlers"
-   (long pages return an outline; use `section` for one handler, e.g. "HandleDamage").
+   (long pages return an outline; use `section` for one part). An event handler is found by its own name:
+   `get` "HandleDamage", "Draw3D" (mission), "onLoad" (UI), "OnCopy" (Eden Editor).
 
 ## Before presenting SQF
 
