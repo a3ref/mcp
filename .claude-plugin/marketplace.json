@@ -11,7 +11,7 @@
       "description": "Arma 3 SQF reference and linter: every scripting command, BIS_fnc function and concept page from the BI Community Wiki, plus a static checker for SQF.",
       "source": "./",
       "category": "development",
-      "homepage": "https://a3ref.github.io/"
+      "homepage": "https://wiki.arma3.io/"
     }
   ]
 }

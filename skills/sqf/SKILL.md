@@ -30,6 +30,6 @@ and are not reported.
 ## Without the MCP tools
 
 Every page is also plain Markdown or JSON at a stable URL:
-`https://a3ref.github.io/commands/<name>.md`, `https://a3ref.github.io/functions/<BIS_fnc_name>.md`,
-`https://a3ref.github.io/topics/<topic>.md`; lower-case paths work too. The list of names is at
-https://a3ref.github.io/names.txt and the guide for language models at https://a3ref.github.io/llms.txt.
+`https://wiki.arma3.io/commands/<name>.md`, `https://wiki.arma3.io/functions/<BIS_fnc_name>.md`,
+`https://wiki.arma3.io/topics/<topic>.md`; lower-case paths work too. The list of names is at
+https://wiki.arma3.io/names.txt and the guide for language models at https://wiki.arma3.io/llms.txt.

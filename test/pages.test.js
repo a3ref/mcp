@@ -22,9 +22,9 @@ test("an exact heading wins over partial matches; a heading brings its subsectio
 });
 
 test("the outline lists every heading and how to read one", () => {
-  const out = outline({ name: "Arma 3: Event Handlers" }, { sections }, "https://a3ref.github.io/topics/Event_Handlers.md");
+  const out = outline({ name: "Arma 3: Event Handlers" }, { sections }, "https://wiki.arma3.io/topics/Event_Handlers.md");
   assert.match(out, /^# Arma 3: Event Handlers\n\nIntro\.\n\n/);
   assert.match(out, /section` set to a heading \(e\.g\. "Fired"\)/);
   assert.match(out, /\n- Basic Event Handlers\n  - Fired\n  - FiredMan \(Arma 3 v1\.66\)\n/);
-  assert.match(out, /Whole page: https:\/\/a3ref\.github\.io\/topics\/Event_Handlers\.md$/);
+  assert.match(out, /Whole page: https:\/\/wiki\.arma3\.io\/topics\/Event_Handlers\.md$/);
 });

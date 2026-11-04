@@ -36588,7 +36588,7 @@ var StdioServerTransport = class {
 };
 
 // src/data.js
-var DEFAULT_BASE = "https://a3ref.github.io/";
+var DEFAULT_BASE = "https://wiki.arma3.io/";
 var TTL = 60 * 60 * 1e3;
 var RETRY = 5 * 60 * 1e3;
 var TIMEOUT = 30 * 1e3;
@@ -37228,7 +37228,7 @@ server.registerTool(
     inputSchema: {
       name: external_exports.string().min(1).describe('e.g. "createVehicle", "BIS_fnc_spawnGroup", "!=", "Event Handlers", "Position"'),
       type: external_exports.enum(["command", "function", "topic", "event"]).optional().describe('Only when names collide: a command and a concept page ("Position", "Group"), a command and an event ("Fuel")'),
-      format: external_exports.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields, empty ones left out (https://a3ref.github.io/schema.json)"),
+      format: external_exports.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields, empty ones left out (https://wiki.arma3.io/schema.json)"),
       section: external_exports.string().optional().describe('Topic pages only: heading to read, with its subsections, e.g. "HandleDamage"')
     },
     annotations: readOnly

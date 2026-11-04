@@ -1,7 +1,7 @@
-// Fetches the a3ref mirror (https://a3ref.github.io) and keeps it in memory for an hour.
+// Fetches the a3ref mirror (https://wiki.arma3.io) and keeps it in memory for an hour.
 // Nothing is bundled: the site is updated daily from the BI Community Wiki.
 
-export const DEFAULT_BASE = "https://a3ref.github.io/";
+export const DEFAULT_BASE = "https://wiki.arma3.io/";
 const TTL = 60 * 60 * 1000;
 const RETRY = 5 * 60 * 1000; // after a failed refresh, keep serving the old copy this long before trying again
 const TIMEOUT = 30 * 1000; // fetch has no timeout of its own: a stalled site would hang the tool call for minutes

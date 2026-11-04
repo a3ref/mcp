@@ -1,4 +1,4 @@
-// a3ref MCP server: the Arma 3 scripting reference (https://a3ref.github.io) as tools for AI agents.
+// a3ref MCP server: the Arma 3 scripting reference (https://wiki.arma3.io) as tools for AI agents.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -71,7 +71,7 @@ server.registerTool(
       name: z.string().min(1).describe('e.g. "createVehicle", "BIS_fnc_spawnGroup", "!=", "Event Handlers", "Position"'),
       type: z.enum(["command", "function", "topic", "event"]).optional()
         .describe('Only when names collide: a command and a concept page ("Position", "Group"), a command and an event ("Fuel")'),
-      format: z.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields, empty ones left out (https://a3ref.github.io/schema.json)"),
+      format: z.enum(["markdown", "json"]).default("markdown").describe("markdown reads best; json has structured fields, empty ones left out (https://wiki.arma3.io/schema.json)"),
       section: z.string().optional().describe('Topic pages only: heading to read, with its subsections, e.g. "HandleDamage"'),
     },
     annotations: readOnly,

@@ -4,7 +4,7 @@ Instructions for AI coding agents working on this repository. What the server of
 [README.md](README.md).
 
 **a3ref/mcp** is an MCP server (stdio) and Claude Code plugin for the Arma 3 scripting reference. It reads the
-live site https://a3ref.github.io/ (built by [a3ref/a3ref.github.io](https://github.com/a3ref/a3ref.github.io)
+live site https://wiki.arma3.io/ (built by [a3ref/a3ref.github.io](https://github.com/a3ref/a3ref.github.io)
 from [a3ref/data](https://github.com/a3ref/data)) and bundles no data.
 
 ## Layout

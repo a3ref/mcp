@@ -37,7 +37,7 @@ test("one download for parallel calls; an old copy is served when the site fails
   assert.equal((await data.find("west")).name, "west");
   await data.find("west"); // the failed refresh is not retried at once
   assert.equal(calls, 2);
-  await assert.rejects(data.get("syntax.json"), /Cannot reach https:\/\/a3ref\.github\.io\/syntax\.json \(ECONNREFUSED\)\. Check the network/);
+  await assert.rejects(data.get("syntax.json"), /Cannot reach https:\/\/wiki\.arma3\.io\/syntax\.json \(ECONNREFUSED\)\. Check the network/);
 });
 
 test("a stalled site times out with a message that says what to do", async () => {

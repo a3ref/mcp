@@ -3,7 +3,7 @@
 Gives Claude, Cursor, VS Code Copilot and any other [MCP](https://modelcontextprotocol.io) client the complete
 Arma 3 scripting reference — every scripting command, every `BIS_fnc_*` function and the core concept pages
 (data types, locality, scheduler, event handlers) — mirrored daily from the
-[Bohemia Interactive Community Wiki](https://community.bistudio.com/wiki) by [a3ref](https://a3ref.github.io/),
+[Bohemia Interactive Community Wiki](https://community.bistudio.com/wiki) by [a3ref](https://wiki.arma3.io/),
 plus a static checker that catches the mistakes models make most in SQF.
 
 | Tool | What it does |
@@ -31,7 +31,7 @@ The `format` and event handler checks follow [HEMTT](https://github.com/BrettMay
 ## Install
 
 Requires Node.js 18 or newer. The server is a single file with no dependencies to install. Step-by-step
-instructions for every client: https://a3ref.github.io/mcp.html
+instructions for every client: https://wiki.arma3.io/mcp.html
 
 ### Claude Code (plugin: MCP server + skill)
 
@@ -118,13 +118,13 @@ Claude Desktop: `claude_desktop_config.json`; Cursor: `.cursor/mcp.json`; Windsu
 
 ## How it works
 
-The server downloads what it needs from https://a3ref.github.io/ (`index.json`, `syntax.json` and the pages
+The server downloads what it needs from https://wiki.arma3.io/ (`index.json`, `syntax.json` and the pages
 you ask for) and keeps it in memory for an hour. Nothing is bundled, so answers follow the wiki without
 updating the server. Set `A3REF_BASE_URL` to use another copy of the site.
 
 The data comes from [a3ref/data](https://github.com/a3ref/data); the site and the parser live in
 [a3ref/a3ref.github.io](https://github.com/a3ref/a3ref.github.io). No MCP client? Every page is also plain
-Markdown and JSON, see https://a3ref.github.io/llms.txt.
+Markdown and JSON, see https://wiki.arma3.io/llms.txt.
 
 ## Development
 
